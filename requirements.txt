@@ -1,0 +1,4 @@
+psycopg2_binary
+xlsxwriter
+requests
+pandas
