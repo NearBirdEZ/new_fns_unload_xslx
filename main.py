@@ -224,7 +224,7 @@ class UnloadFns:
                 ]
                 rec_list.append(base + lst)
         else:
-            rec_list.append(base)
+            rec_list.append(base + ['' for _ in range(7)])
         return rec_list
 
     def download_json(self, inn, num_kkt, rnm, fn, min_fd, max_fd, num):
@@ -235,13 +235,13 @@ class UnloadFns:
         flag = False
 
         index_list = ['receipt.*', 'bso', 'bso_correction', 'close_shift', 'open_shift']
-
+        count = 0
         delta = max_fd - min_fd
-        iteration = ceil(delta / 10000)
-        for type_fd in index_list:
-            for _ in range(iteration):
-                rec_list = []
-                data = '{"from" : 0, "size" : 10000, "_source" : {"includes" : ["requestmessage.*"]}, ' \
+        iteration = ceil(delta / 5000)
+        rec_list = []
+        for i, type_fd in enumerate(index_list):
+            for j in range(iteration):
+                data = '{"from" : 0, "size" : 5000, "_source" : {"includes" : ["requestmessage.*"]}, ' \
                        '"query" : {"bool" : {"filter" : {"bool" : { "must" : ' \
                        '[{"term" : {"requestmessage.fiscalDriveNumber.raw" : "%s"}}, ' \
                        '{"term" : {"requestmessage.kktRegId.raw" : "%s"}},' \
@@ -251,95 +251,78 @@ class UnloadFns:
                 receipts = self.connect.to_elastic(data, type_fd)['hits']['hits']
 
                 for receipt in receipts:
+                    """формируем список товаров"""
                     rec_list += (self.get_information_on_receipt(receipt, num_kkt))
+                """если количество товаров больше или равно 65к или это оставшиеся товары, то записать в xsls файл"""
+                if len(rec_list) >= 65000 or (i == 4 and j + 1 == iteration and rec_list):
                     flag = True
-                if rec_list:
-                    self.write_csv(inn, rnm, fn, rec_list, num)
-                min_fd += 10000
+                    count += 1
+                    self.write_xlsx(count, inn, rnm, fn, rec_list, num)
+                    rec_list = []
+                min_fd += 5000
             """Возвращаем минимальное значение ФД"""
             min_fd = max_fd - delta
         return flag
 
-    def write_xml(self, number_file, inn, rnm, fn, rows, num):
-        column_names = [('Наименование налогоплательщика',
-                         'ИНН',
-                         'Название торговой точки',
-                         'Адрес торговой точки',
-                         'Внутреннее имя ККТ',
-                         'Регистрационный номер ККТ',
-                         'Заводской номер ККТ',
-                         'Заводской номер ФН',
-                         'Применяемая система налогообложения',
-                         'Адрес расчетов',
-                         'Тип фискального документа',
-                         'Номер смены',
-                         'Номер ФД за смену',
-                         'Порядковый номер ФД',
-                         'Дата и время ФД',
-                         'Признак расчета',
-                         'Сумма ФД, руб.',
-                         'Сумма наличные, руб.',
-                         'Сумма электронно, руб.  ',
-                         'Сумма НДС 20%, руб.',
-                         'Сумма НДС 18%, руб.',
-                         'Сумма НДС 10%, руб.',
-                         'Сумма c НДС 0%, руб.',
-                         'Сумма без НДС, руб.',
-                         'Сумма НДС 20/120, руб.',
-                         'Сумма НДС 18/118, руб.',
-                         'Сумма НДС 10/110, руб.',
-                         'Сумма предоплатой (аванс)',
-                         'Сумма постоплатой (в кредит)',
-                         'Сумма встречным предоставлением',
-                         'Абонентский адрес',
-                         'Покупатель (клиент)',
-                         'ИНН покупателя (клиента)',
-                         'Кассир',
-                         'ИНН кассира',
-                         'Фискальный признак',
-                         'Наименование предмета расчета',
-                         'Единица измерения предмета расчета',
-                         'Код товарной номенклатуры',
-                         'Цена за единицу предмета расчета с учетом скидок и наценок',
-                         'Размер НДС за единицу предмета расчета',
-                         'Количество предмета расчета',
-                         'Итоговая сумма предмета расчета'
-                         )] + rows
-
-        file_name = f'./{inn}/{rnm}.{fn}_{number_file}@{num}.xlsx'
-
-        wb = xlsxwriter.Workbook(file_name)
-        sheet = wb.add_worksheet()
-
-        for i, value in enumerate(column_names):
-            for j, val in enumerate(value):
-                sheet.write(i, j, val)
-        wb.close()
-
-    def write_csv(self, inn, rnm, fn, rows, num):
-        """Создание CSV файла для последующей перезаписью в Excel"""
+    def write_xlsx(self, number_file, inn, rnm, fn, rows, num):
+        column_names = (
+            'Наименование налогоплательщика',
+            'ИНН',
+            'Название торговой точки',
+            'Адрес торговой точки',
+            'Внутреннее имя ККТ',
+            'Регистрационный номер ККТ',
+            'Заводской номер ККТ',
+            'Заводской номер ФН',
+            'Применяемая система налогообложения',
+            'Адрес расчетов',
+            'Тип фискального документа',
+            'Номер смены',
+            'Номер ФД за смену',
+            'Порядковый номер ФД',
+            'Дата и время ФД',
+            'Признак расчета',
+            'Сумма ФД, руб.',
+            'Сумма наличные, руб.',
+            'Сумма электронно, руб.  ',
+            'Сумма НДС 20%, руб.',
+            'Сумма НДС 18%, руб.',
+            'Сумма НДС 10%, руб.',
+            'Сумма c НДС 0%, руб.',
+            'Сумма без НДС, руб.',
+            'Сумма НДС 20/120, руб.',
+            'Сумма НДС 18/118, руб.',
+            'Сумма НДС 10/110, руб.',
+            'Сумма предоплатой (аванс)',
+            'Сумма постоплатой (в кредит)',
+            'Сумма встречным предоставлением',
+            'Абонентский адрес',
+            'Покупатель (клиент)',
+            'ИНН покупателя (клиента)',
+            'Кассир',
+            'ИНН кассира',
+            'Фискальный признак',
+            'Наименование предмета расчета',
+            'Единица измерения предмета расчета',
+            'Код товарной номенклатуры',
+            'Цена за единицу предмета расчета с учетом скидок и наценок',
+            'Размер НДС за единицу предмета расчета',
+            'Количество предмета расчета',
+            'Итоговая сумма предмета расчета'
+        )
         try:
             """В связи с тем, что несколько потоков пытаются создать папку, if не успевает. lock не вижу смысла"""
             if not os.path.exists(f"./{inn}/"):
                 os.mkdir(f"./{inn}/")
         except FileExistsError:
             pass
-        file_name = f'./{inn}/{rnm}.{fn}@{num}.csv'
 
-        with open(file_name, 'a', encoding='utf-8') as file:
-            writer = csv.writer(file, delimiter=',')
-            for row in rows:
-                writer.writerow(row)
+        file_name = f'./{inn}/{rnm}.{fn}_{number_file}@{num}.xlsx'
 
-    def csv_to_excel(self, inn, rnm, fn, num):
-        """Способ гораздо быстрее, чем использование openpyxl"""
-        file_name = f'./{inn}/{rnm}.{fn}@{num}.csv'
-
-        chunks = pd.read_csv(file_name, chunksize=200000, iterator=True, header=None, engine='python')
-        for number_file, rows in enumerate(chunks):
-            rows = pd.DataFrame(rows).where(pd.notnull, '').values.tolist()
-            self.write_xml(number_file + 1, inn, rnm, fn, rows, num)
-        os.remove(file_name)
+        df = pd.DataFrame(rows, index=None, columns=column_names)
+        writer = pd.ExcelWriter(file_name)
+        df.to_excel(writer, index=False, sheet_name='Лист')
+        writer.save()
 
     def start_threading(self, inn, numkkt_rnm_fn_list):
         tread_list = []
@@ -363,7 +346,6 @@ class UnloadFns:
                     if min_fd and max_fd:
                         min_fd, max_fd = int(min_fd), int(max_fd)
                         if self.download_json(inn, num_kkt, rnm, fn, min_fd, max_fd, i):
-                            self.csv_to_excel(inn, rnm, fn, i)
                             self.zipped(inn, rnm, fn, i)
                 except Exception as ex:
                     self.exception = f"Ошибка возникла в функции {sys._getframe().f_code.co_name}\n" \
@@ -450,7 +432,7 @@ def main():
         message = f"Во время выгрузки информации по заявке № {uf.request} произошла ошибка.\n" \
                   f"Просьба повторить попытку.\n" \
                   f"Ошибка:\n\n{uf.exception}"
-        uf.delete_unload()
+        #uf.delete_unload()
     else:
         message = f"Выгрузка по заявке № {uf.request} завершена успешно"
         uf.final_zip()
