@@ -7,7 +7,6 @@ import os
 from math import ceil
 import zipfile
 from threading import Thread, Lock
-import xlsxwriter
 import sys
 import pandas as pd
 
@@ -167,7 +166,7 @@ class UnloadFns:
         nds18 = int(receipt.get('nds18', 0)) / 100 if date_eq < date_to_20 and receipt.get('nds18') else ''
         nds20 = int(receipt.get('nds18', 0)) / 100 if date_eq >= date_to_20 and receipt.get('nds18') else ''
         nds10 = int(receipt.get('nds10', 0)) / 100 if receipt.get('nds10') else ''
-        nds0 = int(receipt.get('nds10', 0)) / 100 if receipt.get('nds0') else ''
+        nds0 = int(receipt.get('nds0', 0)) / 100 if receipt.get('nds0') else ''
         nds18118 = int(receipt.get('nds18118', 0)) / 100 if date_eq < date_to_20 and receipt.get('nds18118') else ''
         nds20120 = int(receipt.get('nds20120', 0)) / 100 if date_eq >= date_to_20 and receipt.get('nds20120') else ''
         nds10110 = int(receipt.get('nds10110', 0)) / 100 if receipt.get('nds10110') else ''
