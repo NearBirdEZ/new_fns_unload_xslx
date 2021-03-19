@@ -76,15 +76,20 @@ class UnloadFns:
         start_date = dt.datetime.utcfromtimestamp(self.date_list[0]).strftime("%Y-%m-%d")
         end_date = dt.datetime.utcfromtimestamp(self.date_list[1]).strftime("%Y-%m-%d")
         sql_req = f"""
-        select c.company_inn, k.factory_number_kkt, k.register_number_kkt, k.factory_number_fn, rfk.new_fn, rfk.old_fn 
+        select c.company_inn, k.factory_number_kkt, k.register_number_kkt, rfk."date", k.factory_number_fn, rfk.new_fn, rfk.old_fn 
         from kkt k 
         inner join company c on c.id = k.company_id 
         left join replaced_fn_kkt rfk on rfk.kkt_id = k.id 
+        left join accounts_and_renewal_info aari on aari.reg_num_kkt = k.register_number_kkt
         where c.company_inn in ({self.inn_string}) {self.rnm_string} and 
         ((rfk."date" >=  '{start_date}' and rfk."date" <=  '{end_date}') 
-        or (rfk."date" is null and k.end_date >= '{start_date}' and k.start_date <= '{end_date}'))
+        or (aari.end_date >= '{start_date}' and aari.start_date <= '{end_date}'))
         """
-        for inn, factory_number_kkt, rnm, *fn_list in self.connect.sql_select(sql_req):
+        for inn, factory_number_kkt, rnm, replace_date, *fn_list in self.connect.sql_select(sql_req):
+
+            if replace_date and (dt.datetime.utcfromtimestamp(self.date_list[0]) > replace_date < dt.datetime.utcfromtimestamp(self.date_list[1])):
+                fn_list = fn_list[:-1]
+
             if inn_rnm_fn_dict.get(inn):
                 inn_rnm_fn_dict[inn] = inn_rnm_fn_dict[inn].union(set([(factory_number_kkt, rnm, fn) for fn in fn_list if fn]))
             else:
