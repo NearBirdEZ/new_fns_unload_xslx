@@ -71,44 +71,25 @@ class UnloadFns:
             os.mkdir(f"./unload/{self.request}/")
         os.chdir(f"./unload/{self.request}/")
 
-    def collect_rnm_inn(self):
-        print('Запрос в базу данных...')
-        """Формируем запрос SQL и получаем таблицу вида RNM - INN"""
-        request = f"select kkt.factory_number_kkt, kkt.register_number_kkt, company.company_inn " \
-                  f"from kkt inner join company on company." \
-                  f"id=kkt.company_id  where company.company_inn in ({self.inn_string}) {self.rnm_string}"
-        numkkt_rnm_inn_list = self.connect.sql_select(request)
-        return numkkt_rnm_inn_list
-
-    def collect_fn(self, rnm):
-        """По полученым РНМ уточняем все установленные ФНы"""
-        """в рамках указаных дат и по необходимым индексам"""
-        query = """{
-"size": 0,
-"query" : {"bool" : {"must" : [
-{"term" : {"requestmessage.kktRegId.raw" : "%s"}},
-{"range" : {"requestmessage.dateTime" : {"gte" : "%s", "lte" : "%s" }}}
-]}},
-"aggs": {"fsIds": {"terms": {"field": "requestmessage.fiscalDriveNumber.raw","size": 500000}}}}""" % (rnm,
-                                                                                                      self.date_list[0],
-                                                                                                      self.date_list[1])
-        fn_list = self.connect.to_elastic(query, 'receipt*,bso*,*_shift')['aggregations']['fsIds']['buckets']
-        return fn_list
-
-    def get_dict_inn_rnm_fn(self):
-        numkkt_rnm_inn_list = self.collect_rnm_inn()
-        if not numkkt_rnm_inn_list:
-            print('Пар РНМ:ИНН не найдено.')
-            exit()
-        four_inn_numkkt_rnm_fn_dict = {}
-        for num_kkt, rnm, inn in numkkt_rnm_inn_list:
-            for fn in self.collect_fn(rnm):
-                fn = fn['key']
-                if four_inn_numkkt_rnm_fn_dict.get(inn):
-                    four_inn_numkkt_rnm_fn_dict[inn].append((num_kkt, rnm, fn))
-                else:
-                    four_inn_numkkt_rnm_fn_dict[inn] = [(num_kkt, rnm, fn)]
-        return four_inn_numkkt_rnm_fn_dict
+    def get_job_dict(self) -> dict:
+        inn_rnm_fn_dict = {}
+        start_date = dt.datetime.utcfromtimestamp(self.date_list[0]).strftime("%Y-%m-%d")
+        end_date = dt.datetime.utcfromtimestamp(self.date_list[1]).strftime("%Y-%m-%d")
+        sql_req = f"""
+        select c.company_inn, k.factory_number_kkt, k.register_number_kkt, k.factory_number_fn, rfk.new_fn, rfk.old_fn 
+        from kkt k 
+        inner join company c on c.id = k.company_id 
+        left join replaced_fn_kkt rfk on rfk.kkt_id = k.id 
+        where c.company_inn in ({self.inn_string}) {self.rnm_string} and 
+        ((rfk."date" >=  '{start_date}' and rfk."date" <=  '{end_date}') 
+        or (rfk."date" is null and k.end_date >= '{start_date}' and k.start_date <= '{end_date}'))
+        """
+        for inn, factory_number_kkt, rnm, *fn_list in self.connect.sql_select(sql_req):
+            if inn_rnm_fn_dict.get(inn):
+                inn_rnm_fn_dict[inn] = inn_rnm_fn_dict[inn].union(set([(factory_number_kkt, rnm, fn) for fn in fn_list if fn]))
+            else:
+                inn_rnm_fn_dict[inn] = set([(factory_number_kkt, rnm, fn) for fn in fn_list if fn])
+        return inn_rnm_fn_dict
 
     def min_max_fd(self, rnm, fn, start_date, end_date):
         """Получаем минимальный и максимальные ФД в периоде относительно РНМ и ФН"""
@@ -125,7 +106,6 @@ class UnloadFns:
         return min_fd, max_fd
 
     def get_information_on_receipt(self, receipt, num_kkt):
-
         receipt = receipt['_source']['requestmessage']
         sys_tax = {1: "ОСН",
                    2: "УСН доход",
@@ -423,15 +403,15 @@ class UnloadFns:
 
 def main():
     uf = UnloadFns('request.txt')
-    dict_inn_numkkt_rnm_fn = uf.get_dict_inn_rnm_fn()
+    dict_inn_numkkt_rnm_fn = uf.get_job_dict()
     for inn, numkkt_rnm_fn_list in dict_inn_numkkt_rnm_fn.items():
         if len(numkkt_rnm_fn_list) != 0:
-            uf.start_threading(inn, numkkt_rnm_fn_list)
+            uf.start_threading(inn, list(numkkt_rnm_fn_list))
     if uf.STOP_FLAG:
         message = f"Во время выгрузки информации по заявке № {uf.request} произошла ошибка.\n" \
                   f"Просьба повторить попытку.\n" \
                   f"Ошибка:\n\n{uf.exception}"
-        #uf.delete_unload()
+        uf.delete_unload()
     else:
         message = f"Выгрузка по заявке № {uf.request} завершена успешно"
         uf.final_zip()
