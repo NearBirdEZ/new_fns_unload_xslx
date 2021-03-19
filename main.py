@@ -91,7 +91,7 @@ class UnloadFns:
                 inn_rnm_fn_dict[inn] = set([(factory_number_kkt, rnm, fn) for fn in fn_list if fn])
         return inn_rnm_fn_dict
 
-    def min_max_fd(self, rnm, fn, start_date, end_date):
+    def min_max_fd(self, rnm, fn, start_date, end_date) -> tuple:
         """Получаем минимальный и максимальные ФД в периоде относительно РНМ и ФН"""
         stats_fd_request = '{"query" : {"bool" : {"filter" : {"bool" : {"must" : ' \
                            '[{"term" : {"requestmessage.fiscalDriveNumber.raw" : "%s" }},' \
@@ -162,7 +162,7 @@ class UnloadFns:
                 num_kkt,  # брать из постгры
                 receipt.get('fiscalDriveNumber', ''),
                 sys_tax.get(receipt.get('appliedTaxationType'), ''),
-                receipt.get('retailAddress', ''),
+                receipt.get('retailAddress', '') or receipt.get('retailPlaceAddress', ''),
                 tagNumber.get(receipt.get('code'), ''),
                 receipt.get('shiftNumber', ''),
                 receipt.get('requestNumber', ''),
