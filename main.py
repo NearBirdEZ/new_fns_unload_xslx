@@ -8,7 +8,7 @@ from math import ceil
 import zipfile
 from threading import Thread, Lock
 import sys
-import pandas as pd
+import xlsxwriter
 
 
 class UnloadFns:
@@ -87,11 +87,14 @@ class UnloadFns:
         """
         for inn, factory_number_kkt, rnm, replace_date, *fn_list in self.connect.sql_select(sql_req):
 
-            if replace_date and (dt.datetime.utcfromtimestamp(self.date_list[0]) > replace_date < dt.datetime.utcfromtimestamp(self.date_list[1])):
+            if replace_date and (
+                    dt.datetime.utcfromtimestamp(self.date_list[0]) > replace_date < dt.datetime.utcfromtimestamp(
+                    self.date_list[1])):
                 fn_list = fn_list[:-1]
 
             if inn_rnm_fn_dict.get(inn):
-                inn_rnm_fn_dict[inn] = inn_rnm_fn_dict[inn].union(set([(factory_number_kkt, rnm, fn) for fn in fn_list if fn]))
+                inn_rnm_fn_dict[inn] = inn_rnm_fn_dict[inn].union(
+                    set([(factory_number_kkt, rnm, fn) for fn in fn_list if fn]))
             else:
                 inn_rnm_fn_dict[inn] = set([(factory_number_kkt, rnm, fn) for fn in fn_list if fn])
         return inn_rnm_fn_dict
@@ -148,14 +151,14 @@ class UnloadFns:
 
         datetime_rec = dt.datetime.utcfromtimestamp(datetime_rec).strftime('%Y-%m-%d %H:%M:%S')  # дата получения чека
 
-        nds18 = int(receipt.get('nds18', 0)) / 100 if date_eq < date_to_20 and receipt.get('nds18') else ''
-        nds20 = int(receipt.get('nds18', 0)) / 100 if date_eq >= date_to_20 and receipt.get('nds18') else ''
-        nds10 = int(receipt.get('nds10', 0)) / 100 if receipt.get('nds10') else ''
-        nds0 = int(receipt.get('nds0', 0)) / 100 if receipt.get('nds0') else ''
-        nds18118 = int(receipt.get('nds18118', 0)) / 100 if date_eq < date_to_20 and receipt.get('nds18118') else ''
-        nds20120 = int(receipt.get('nds20120', 0)) / 100 if date_eq >= date_to_20 and receipt.get('nds20120') else ''
-        nds10110 = int(receipt.get('nds10110', 0)) / 100 if receipt.get('nds10110') else ''
-        ndsno = int(receipt.get('ndsNo', 0)) / 100 if receipt.get('ndsNo') else ''
+        nds18 = round(int(receipt.get('nds18', 0)) / 100, 2) if date_eq < date_to_20 and receipt.get('nds18') else ''
+        nds20 = round(int(receipt.get('nds18', 0)) / 100, 2) if date_eq >= date_to_20 and receipt.get('nds18') else ''
+        nds10 = round(int(receipt.get('nds10', 0)) / 100, 2) if receipt.get('nds10') else ''
+        nds0 = round(int(receipt.get('nds0', 0)) / 100, 2) if receipt.get('nds0') else ''
+        nds18118 = round(int(receipt.get('nds18118', 0)) / 100, 2) if date_eq < date_to_20 and receipt.get('nds18118') else ''
+        nds20120 = round(int(receipt.get('nds20120', 0)) / 100, 2) if date_eq >= date_to_20 and receipt.get('nds20120') else ''
+        nds10110 = round(int(receipt.get('nds10110', 0)) / 100, 2) if receipt.get('nds10110') else ''
+        ndsno = round(int(receipt.get('ndsNo', 0)) / 100, 2) if receipt.get('ndsNo') else ''
 
         rec_list = []
         base = [receipt.get('user', ''),
@@ -174,9 +177,9 @@ class UnloadFns:
                 receipt.get('fiscalDocumentNumber', ''),
                 datetime_rec,
                 operationType.get(receipt.get('operationType'), ''),
-                receipt.get('totalSum', 0) / 100,
-                receipt.get('cashTotalSum', 0) / 100,
-                receipt.get('ecashTotalSum', 0) / 100,
+                round(receipt.get('totalSum', 0) / 100, 2),
+                round(receipt.get('cashTotalSum', 0) / 100, 2),
+                round(receipt.get('ecashTotalSum', 0) / 100, 2),
                 nds20,
                 nds18,
                 nds10,
@@ -185,9 +188,9 @@ class UnloadFns:
                 nds20120,
                 nds18118,
                 nds10110,
-                receipt.get('prepaidSum', 0) / 100,
-                receipt.get('creditSum', 0) / 100,
-                receipt.get('provisionSum    ', 0) / 100,
+                round(receipt.get('prepaidSum', 0) / 100, 2),
+                round(receipt.get('creditSum', 0) / 100, 2),
+                round(receipt.get('provisionSum    ', 0) / 100, 2),
                 receipt.get('buyerPhoneOrAddress', ''),
                 receipt.get('buyer', ''),
                 receipt.get('buyerInn', ''),
@@ -201,10 +204,10 @@ class UnloadFns:
                     item.get('name', ''),
                     '',  # единица измерения предмета расчета
                     '',  # код товарной номенклатуры
-                    int(item.get('price', 0)) / 100,
+                    round(int(item.get('price', 0)) / 100, 2),
                     nds.get(item.get('nds'), ''),
                     item.get('quantity', ''),
-                    int(item.get('sum', 0)) / 100
+                    round(int(item.get('sum', 0)) / 100, 2)
                 ]
                 rec_list.append(base + lst)
         else:
@@ -249,7 +252,13 @@ class UnloadFns:
         return flag
 
     def write_xlsx(self, number_file, inn, rnm, fn, rows, num):
-        column_names = (
+        width_col = (("A", 52), ("B", 14), ("C", 27), ("D", 42), ("E", 22), ("F", 27), ("G", 21), ("H", 20),
+                     ("I", 37), ("J", 42), ("K", 27), ("L", 13), ("M", 19), ("N", 21), ("O", 21), ("P", 17),
+                     ("Q", 16), ("R", 22), ("S", 26), ("T", 21), ("U", 21), ("V", 21), ("W", 22), ("X", 21),
+                     ("Y", 24), ("Z", 24), ("AA", 24), ("AB", 27), ("AC", 30), ("AD", 33), ("AE", 19),
+                     ("AF", 25), ("AG", 26), ("AH", 17), ("AI", 14), ("AJ", 20), ("AK", 60), ("AL", 36),
+                     ("AM", 27), ("AN", 60), ("AO", 40), ("AP", 29), ("AQ", 33),)
+        column_names = [(
             'Наименование налогоплательщика',
             'ИНН',
             'Название торговой точки',
@@ -293,7 +302,7 @@ class UnloadFns:
             'Размер НДС за единицу предмета расчета',
             'Количество предмета расчета',
             'Итоговая сумма предмета расчета'
-        )
+        )]
         try:
             """В связи с тем, что несколько потоков пытаются создать папку, if не успевает. lock не вижу смысла"""
             if not os.path.exists(f"./{inn}/"):
@@ -303,10 +312,17 @@ class UnloadFns:
 
         file_name = f'./{inn}/{rnm}.{fn}_{number_file}@{num}.xlsx'
 
-        df = pd.DataFrame(rows, index=None, columns=column_names)
-        writer = pd.ExcelWriter(file_name)
-        df.to_excel(writer, index=False, sheet_name='Лист')
-        writer.save()
+        wb = xlsxwriter.Workbook(file_name)
+        sheet = wb.add_worksheet()
+
+        """set width column"""
+        for col, width in width_col:
+            sheet.set_column(f'{col}:{col}', width)
+
+        for i, value in enumerate(column_names + rows):
+            for j, val in enumerate(value):
+                sheet.write(i, j, val)
+        wb.close()
 
     def start_threading(self, inn, numkkt_rnm_fn_list):
         tread_list = []
