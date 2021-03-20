@@ -93,7 +93,7 @@ class UnloadFns:
         for inn, factory_number_kkt, rnm, replace_date, *fn_list in self.connect.sql_select(sql_req):
 
             if replace_date and (
-                    dt.datetime.utcfromtimestamp(self.date_list[0]) > replace_date < dt.datetime.utcfromtimestamp(
+                    dt.datetime.utcfromtimestamp(self.date_list[0]) < replace_date < dt.datetime.utcfromtimestamp(
                     self.date_list[1])):
                 fn_list = fn_list[:-1]
 
