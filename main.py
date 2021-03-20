@@ -76,11 +76,16 @@ class UnloadFns:
         start_date = dt.datetime.utcfromtimestamp(self.date_list[0]).strftime("%Y-%m-%d")
         end_date = dt.datetime.utcfromtimestamp(self.date_list[1]).strftime("%Y-%m-%d")
         sql_req = f"""
-        select c.company_inn, k.factory_number_kkt, k.register_number_kkt, rfk."date", k.factory_number_fn, rfk.new_fn, rfk.old_fn 
+        select c.company_inn, k.factory_number_kkt, k.register_number_kkt, rfk."date", 
+            rr.fiscal_drive_number, 
+            k.factory_number_fn, 
+            rfk.new_fn, 
+            rfk.old_fn 
         from kkt k 
         inner join company c on c.id = k.company_id 
         left join replaced_fn_kkt rfk on rfk.kkt_id = k.id 
         left join accounts_and_renewal_info aari on aari.reg_num_kkt = k.register_number_kkt
+        left join kkt_location.reg_reports rr on rr.kkt_reg_id = k.register_number_kkt
         where c.company_inn in ({self.inn_string}) {self.rnm_string} and 
         ((rfk."date" >=  '{start_date}' and rfk."date" <=  '{end_date}') 
         or (aari.end_date >= '{start_date}' and aari.start_date <= '{end_date}'))
@@ -256,7 +261,7 @@ class UnloadFns:
                      ("I", 37), ("J", 42), ("K", 27), ("L", 13), ("M", 19), ("N", 21), ("O", 21), ("P", 17),
                      ("Q", 16), ("R", 22), ("S", 26), ("T", 21), ("U", 21), ("V", 21), ("W", 22), ("X", 21),
                      ("Y", 24), ("Z", 24), ("AA", 24), ("AB", 27), ("AC", 30), ("AD", 33), ("AE", 19),
-                     ("AF", 25), ("AG", 26), ("AH", 17), ("AI", 14), ("AJ", 20), ("AK", 60), ("AL", 36),
+                     ("AF", 25), ("AG", 26), ("AH", 17), ("AI", 14), ("AJ", 20), ("AK", 100), ("AL", 36),
                      ("AM", 27), ("AN", 60), ("AO", 40), ("AP", 29), ("AQ", 33),)
         column_names = [(
             'Наименование налогоплательщика',
@@ -321,7 +326,7 @@ class UnloadFns:
 
         for i, value in enumerate(column_names + rows):
             for j, val in enumerate(value):
-                sheet.write(i, j, val)
+                sheet.write_string(i, j, str(val))
         wb.close()
 
     def start_threading(self, inn, numkkt_rnm_fn_list):
