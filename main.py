@@ -51,7 +51,7 @@ class UnloadFns:
             inn_string = ', '.join(f"'{inn}'" for inn in inn_list)
             if len(rnm_list) != 0:
                 rnm_string = ', '.join(f"'{rnm}'" for rnm in rnm_list)
-                rnm_string = f'and kkt.register_number_kkt in ({rnm_string})'
+                rnm_string = f'and k.register_number_kkt in ({rnm_string})'
             else:
                 rnm_string = ''
         return request_number, date_in, inn_string, rnm_string
