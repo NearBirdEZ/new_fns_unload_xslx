@@ -73,35 +73,19 @@ class UnloadFns:
 
     def get_job_dict(self) -> dict:
         inn_rnm_fn_dict = {}
-        start_date = dt.datetime.utcfromtimestamp(self.date_list[0]).strftime("%Y-%m-%d")
-        end_date = dt.datetime.utcfromtimestamp(self.date_list[1]).strftime("%Y-%m-%d")
         sql_req = f"""
-        select c.company_inn, k.factory_number_kkt, k.register_number_kkt, rfk."date", 
-            rr.fiscal_drive_number, 
-            k.factory_number_fn, 
-            rfk.new_fn, 
-            rfk.old_fn 
-        from kkt k 
-        inner join company c on c.id = k.company_id 
-        left join replaced_fn_kkt rfk on rfk.kkt_id = k.id 
-        left join accounts_and_renewal_info aari on aari.reg_num_kkt = k.register_number_kkt
-        left join kkt_location.reg_reports rr on rr.kkt_reg_id = k.register_number_kkt
-        where c.company_inn in ({self.inn_string}) {self.rnm_string} and 
-        ((rfk."date" >=  '{start_date}' and rfk."date" <=  '{end_date}') 
-        or (aari.end_date >= '{start_date}' and aari.start_date <= '{end_date}'))
-        """
-        for inn, factory_number_kkt, rnm, replace_date, *fn_list in self.connect.sql_select(sql_req):
+            select c.company_inn, k.factory_number_kkt, k.register_number_kkt, fs_id from stats.by_kkt bk 
+            inner join kkt k on cast(k.register_number_kkt as bigint) = bk.kkt_reg_id
+            inner join company c on c.id = k.company_id 
+            where c.company_inn in ({self.inn_string}) {self.rnm_string}
+            and  first_date_time < '{self.date_list[1]}'
+            and  last_date_time > '{self.date_list[0]}'"""
 
-            if replace_date and  not (
-                    dt.datetime.utcfromtimestamp(self.date_list[0]) < replace_date < dt.datetime.utcfromtimestamp(
-                    self.date_list[1])):
-                fn_list = fn_list[:-1]
-
+        for inn, factory_number_kkt, rnm, fn in self.connect.sql_select(sql_req):
             if inn_rnm_fn_dict.get(inn):
-                inn_rnm_fn_dict[inn] = inn_rnm_fn_dict[inn].union(
-                    set([(factory_number_kkt, rnm, fn) for fn in fn_list if fn]))
+                inn_rnm_fn_dict[inn] += [(factory_number_kkt, rnm, fn)]
             else:
-                inn_rnm_fn_dict[inn] = set([(factory_number_kkt, rnm, fn) for fn in fn_list if fn])
+                inn_rnm_fn_dict[inn] = [(factory_number_kkt, rnm, fn)]
         return inn_rnm_fn_dict
 
     def min_max_fd(self, rnm, fn, start_date, end_date) -> tuple:
@@ -352,6 +336,7 @@ class UnloadFns:
                         min_fd, max_fd = int(min_fd), int(max_fd)
                         if self.download_json(inn, num_kkt, rnm, fn, min_fd, max_fd, i):
                             self.zipped(inn, rnm, fn, i)
+                            print(f'zip {rnm}:{fn}')
                 except Exception as ex:
                     self.exception = f"Ошибка возникла в функции {sys._getframe().f_code.co_name}\n" \
                                      f"Строка {str(sys.exc_info()[2].tb_lineno)}\n" \
@@ -429,10 +414,12 @@ class UnloadFns:
 
 def main():
     uf = UnloadFns('request.txt')
+    print('Запрос в БД')
     dict_inn_numkkt_rnm_fn = uf.get_job_dict()
+    print('Начало выгрузки')
     for inn, numkkt_rnm_fn_list in dict_inn_numkkt_rnm_fn.items():
         if len(numkkt_rnm_fn_list) != 0:
-            uf.start_threading(inn, list(numkkt_rnm_fn_list))
+            uf.start_threading(inn, numkkt_rnm_fn_list)
     if uf.STOP_FLAG:
         message = f"Во время выгрузки информации по заявке № {uf.request} произошла ошибка.\n" \
                   f"Просьба повторить попытку.\n" \
