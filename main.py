@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-from lib import Connections, CsvJob
-import csv
+from lib import Connections
 import datetime as dt
 import os
 from math import ceil
@@ -88,7 +87,7 @@ class UnloadFns:
                 inn_rnm_fn_dict[inn] = [(factory_number_kkt, rnm, fn)]
         return inn_rnm_fn_dict
 
-    def min_max_fd(self, rnm, fn, start_date, end_date) -> tuple:
+    def min_max_fd(self, rnm: str, fn: str, start_date: int, end_date: int) -> tuple:
         """Получаем минимальный и максимальные ФД в периоде относительно РНМ и ФН"""
         stats_fd_request = '{"query" : {"bool" : {"filter" : {"bool" : {"must" : ' \
                            '[{"term" : {"requestmessage.fiscalDriveNumber.raw" : "%s" }},' \
@@ -96,13 +95,12 @@ class UnloadFns:
                            '{"range" : {"requestmessage.dateTime" : {"gte" : "%d", "lte" : "%d" }}}]}}}}, ' \
                            '"aggs" : {"stats" : { "stats" : { "field" : "requestmessage.fiscalDocumentNumber" }}}}' % (
                                fn, rnm, start_date, end_date)
-        stats = self.connect.to_elastic(stats_fd_request,
-                                        'receipt.*,bso,bso_correction,close_shift,open_shift')['aggregations']['stats']
-        max_fd = stats['max']
-        min_fd = stats['min']
-        return min_fd, max_fd
+        stats = self.connect.to_elastic(stats_fd_request, 'receipt*,bso*,*_shift')['aggregations']['stats']
+        return stats['min'], stats['max']
 
-    def get_information_on_receipt(self, receipt, num_kkt):
+    @staticmethod
+    def get_information_on_receipt(receipt: dict, num_kkt: str) -> list:
+
         receipt = receipt['_source']['requestmessage']
         sys_tax = {1: "ОСН",
                    2: "УСН доход",
@@ -140,35 +138,35 @@ class UnloadFns:
 
         datetime_rec = dt.datetime.utcfromtimestamp(datetime_rec).strftime('%Y-%m-%d %H:%M:%S')  # дата получения чека
 
-        nds18 = round(int(receipt.get('nds18', 0)) / 100, 2) if date_eq < date_to_20 and receipt.get('nds18') else ''
-        nds20 = round(int(receipt.get('nds18', 0)) / 100, 2) if date_eq >= date_to_20 and receipt.get('nds18') else ''
-        nds10 = round(int(receipt.get('nds10', 0)) / 100, 2) if receipt.get('nds10') else ''
-        nds0 = round(int(receipt.get('nds0', 0)) / 100, 2) if receipt.get('nds0') else ''
-        nds18118 = round(int(receipt.get('nds18118', 0)) / 100, 2) if date_eq < date_to_20 and receipt.get('nds18118') else ''
-        nds20120 = round(int(receipt.get('nds20120', 0)) / 100, 2) if date_eq >= date_to_20 and receipt.get('nds20120') else ''
-        nds10110 = round(int(receipt.get('nds10110', 0)) / 100, 2) if receipt.get('nds10110') else ''
-        ndsno = round(int(receipt.get('ndsNo', 0)) / 100, 2) if receipt.get('ndsNo') else ''
+        nds18 = int(receipt.get('nds18', 0)) / 100 if date_eq < date_to_20 and receipt.get('nds18') else ''
+        nds20 = int(receipt.get('nds18', 0)) / 100 if date_eq >= date_to_20 and receipt.get('nds18') else ''
+        nds10 = int(receipt.get('nds10', 0)) / 100 if receipt.get('nds10') else ''
+        nds0 = int(receipt.get('nds0', 0)) / 100 if receipt.get('nds0') else ''
+        nds18118 = int(receipt.get('nds18118', 0)) / 100 if date_eq < date_to_20 else ''
+        nds20120 = int(receipt.get('nds18118', 0)) / 100 if date_eq >= date_to_20 else ''
+        nds10110 = int(receipt.get('nds10110', 0)) / 100 if receipt.get('nds10110') else ''
+        ndsno = int(receipt.get('ndsNo', 0)) / 100 if receipt.get('ndsNo') else ''
 
         rec_list = []
         base = [receipt.get('user', ''),
                 receipt.get('userInn', ''),
                 receipt.get('retailPlace', ''),
-                receipt.get('retailAddress', ''),
+                receipt.get('retailPlaceAddress') or receipt.get('retailAddress', ''),
                 '',  # внутреннее имя
                 receipt.get('kktRegId', ''),
-                num_kkt,  # брать из постгры
+                num_kkt,
                 receipt.get('fiscalDriveNumber', ''),
                 sys_tax.get(receipt.get('appliedTaxationType'), ''),
-                receipt.get('retailAddress', '') or receipt.get('retailPlaceAddress', ''),
+                receipt.get('retailPlaceAddress') or receipt.get('retailAddress', ''),
                 tagNumber.get(receipt.get('code'), ''),
                 receipt.get('shiftNumber', ''),
                 receipt.get('requestNumber', ''),
                 receipt.get('fiscalDocumentNumber', ''),
                 datetime_rec,
                 operationType.get(receipt.get('operationType'), ''),
-                round(receipt.get('totalSum', 0) / 100, 2),
-                round(receipt.get('cashTotalSum', 0) / 100, 2),
-                round(receipt.get('ecashTotalSum', 0) / 100, 2),
+                receipt.get('totalSum', 0) / 100,
+                receipt.get('cashTotalSum', 0) / 100,
+                receipt.get('ecashTotalSum', 0) / 100,
                 nds20,
                 nds18,
                 nds10,
@@ -177,9 +175,9 @@ class UnloadFns:
                 nds20120,
                 nds18118,
                 nds10110,
-                round(receipt.get('prepaidSum', 0) / 100, 2),
-                round(receipt.get('creditSum', 0) / 100, 2),
-                round(receipt.get('provisionSum    ', 0) / 100, 2),
+                receipt.get('prepaidSum', 0) / 100,
+                receipt.get('creditSum', 0) / 100,
+                receipt.get('provisionSum', 0) / 100,
                 receipt.get('buyerPhoneOrAddress', ''),
                 receipt.get('buyer', ''),
                 receipt.get('buyerInn', ''),
@@ -191,19 +189,20 @@ class UnloadFns:
             for item in receipt.get('items'):
                 lst = [
                     item.get('name', ''),
-                    '',  # единица измерения предмета расчета
-                    '',  # код товарной номенклатуры
-                    round(int(item.get('price', 0)) / 100, 2),
-                    nds.get(item.get('nds'), ''),
+                    item.get('unit', ''),
+                    item.get('productCode', ''),
+                    int(item.get('price', 0)) / 100,
+                    int(item.get('unitNds', 0)) / 100,
+                    # nds.get(item.get('nds'), ''),
                     item.get('quantity', ''),
-                    round(int(item.get('sum', 0)) / 100, 2)
+                    int(item.get('sum', 0)) / 100
                 ]
                 rec_list.append(base + lst)
         else:
             rec_list.append(base + ['' for _ in range(7)])
         return rec_list
 
-    def download_json(self, inn, num_kkt, rnm, fn, min_fd, max_fd, num):
+    def download_json(self, inn: str, num_kkt: str, rnm: str, fn: str, min_fd: int, max_fd: int, num: int) -> bool:
         """Основной скрипт выгрузки
         Формируется запрос согласно максимального и минимального ФД по РНМ:ФН
         Выгружаются по всем необходимым индексам
@@ -217,15 +216,36 @@ class UnloadFns:
         rec_list = []
         for i, type_fd in enumerate(index_list):
             for j in range(iteration):
-                data = '{"from" : 0, "size" : 5000, "_source" : {"includes" : ["requestmessage.*"]}, ' \
-                       '"query" : {"bool" : {"filter" : {"bool" : { "must" : ' \
-                       '[{"term" : {"requestmessage.fiscalDriveNumber.raw" : "%s"}}, ' \
-                       '{"term" : {"requestmessage.kktRegId.raw" : "%s"}},' \
-                       '{"range" : {"requestmessage.fiscalDocumentNumber" : {"gte" : %d, "lte" : %d }}}]}}}}, ' \
-                       '"sort" : [{ "requestmessage.fiscalDocumentNumber" : { "order" : "asc"}}]}' % \
-                       (fn, rnm, min_fd, max_fd)
-                receipts = self.connect.to_elastic(data, type_fd)['hits']['hits']
+                data = """
+                    {
+                        "from" : 0, 
+                        "size" : 5000, 
+                        "_source" : {
+                                "includes" : ["requestmessage.*"]
+                                    }, 
+                           "query" : {
+                                "bool" : {
+                                    "filter" : {
+                                        "bool" : {
+                                            "must" : [
+                                                {"term" : {"requestmessage.fiscalDriveNumber.raw" : "%s"}}, 
+                                                {"term" : {"requestmessage.kktRegId.raw" : "%s"}},
+                                                {"range" : {"requestmessage.dateTime" : {"gte" : "%d", "lte" : "%d" }}},
+                                                {"range" : {
+                                                    "requestmessage.fiscalDocumentNumber" : {"gte" : %d, "lte" : %d }
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }, 
+                           "sort" : [
+                                { "requestmessage.fiscalDocumentNumber" : { "order" : "asc"}}
+                                ]
+                        }""" % (fn, rnm, self.date_list[0], self.date_list[1], min_fd, max_fd)
 
+                receipts = self.connect.to_elastic(data, type_fd)['hits']['hits']
                 for receipt in receipts:
                     """формируем список товаров"""
                     rec_list += (self.get_information_on_receipt(receipt, num_kkt))
@@ -240,7 +260,8 @@ class UnloadFns:
             min_fd = max_fd - delta
         return flag
 
-    def write_xlsx(self, number_file, inn, rnm, fn, rows, num):
+    @staticmethod
+    def write_xlsx(number_file: int, inn: str, rnm: str, fn: str, rows: list, num: int) -> None:
         width_col = (("A", 52), ("B", 14), ("C", 27), ("D", 42), ("E", 22), ("F", 27), ("G", 21), ("H", 20),
                      ("I", 37), ("J", 42), ("K", 27), ("L", 13), ("M", 19), ("N", 21), ("O", 21), ("P", 17),
                      ("Q", 16), ("R", 22), ("S", 26), ("T", 21), ("U", 21), ("V", 21), ("W", 22), ("X", 21),
@@ -286,7 +307,7 @@ class UnloadFns:
             'Фискальный признак',
             'Наименование предмета расчета',
             'Единица измерения предмета расчета',
-            'Код товарной номенклатуры',
+            'Код товара',
             'Цена за единицу предмета расчета с учетом скидок и наценок',
             'Размер НДС за единицу предмета расчета',
             'Количество предмета расчета',
@@ -313,7 +334,7 @@ class UnloadFns:
                 sheet.write_string(i, j, str(val))
         wb.close()
 
-    def start_threading(self, inn, numkkt_rnm_fn_list):
+    def start_threading(self, inn: str, numkkt_rnm_fn_list: list) -> None:
         tread_list = []
         for i in range(self.threads):
             t = Thread(target=self.thread_job_rnm, args=(i, inn, numkkt_rnm_fn_list))
@@ -322,7 +343,7 @@ class UnloadFns:
         for i in range(self.threads):
             tread_list[i].join()
 
-    def thread_job_rnm(self, num_thread, inn, numkkt_rnm_fn_list):
+    def thread_job_rnm(self, num_thread: int, inn: str, numkkt_rnm_fn_list: list) -> None:
         for i in range(num_thread, len(numkkt_rnm_fn_list), self.threads):
             if not self.STOP_FLAG:
                 try:
@@ -336,7 +357,6 @@ class UnloadFns:
                         min_fd, max_fd = int(min_fd), int(max_fd)
                         if self.download_json(inn, num_kkt, rnm, fn, min_fd, max_fd, i):
                             self.zipped(inn, rnm, fn, i)
-                            print(f'zip {rnm}:{fn}')
                 except Exception as ex:
                     self.exception = f"Ошибка возникла в функции {sys._getframe().f_code.co_name}\n" \
                                      f"Строка {str(sys.exc_info()[2].tb_lineno)}\n" \
@@ -346,8 +366,9 @@ class UnloadFns:
             else:
                 exit()
 
-    def zipped(self, inn, rnm, fn, num):
-        """Зипую папку с именем rnm.fn.period"""
+    @staticmethod
+    def zipped(inn: str, rnm: str, fn: str, num: int) -> None:
+        """Зипую папку с именем rnm.fn"""
         path = f'./{inn}/'
         file_dir = os.listdir(path)
         zip_name = f'{path}{rnm}.{fn}.zip'
@@ -363,7 +384,20 @@ class UnloadFns:
                     os.remove(add_file)
                     os.rmdir(f'{path}{num}')
 
-    def final_zip(self):
+    @staticmethod
+    def get_files() -> list:
+        file_path = []
+        file_list = []
+
+        for root, dirs, files in os.walk('.'):
+            file_path.append([os.path.join(root, file) for file in files])
+
+        for folder in file_path:
+            if folder:
+                file_list += folder
+        return file_list
+
+    def final_zip(self) -> None:
         file_list = self.get_files()
 
         zip_name = f'../{self.request}.zip'
@@ -383,19 +417,7 @@ class UnloadFns:
         except OSError:
             pass
 
-    def get_files(self) -> list:
-        file_path = []
-        file_list = []
-
-        for root, dirs, files in os.walk('.'):
-            file_path.append([os.path.join(root, file) for file in files])
-
-        for folder in file_path:
-            if folder:
-                file_list += folder
-        return file_list
-
-    def delete_unload(self):
+    def delete_unload(self) -> None:
         file_list = self.get_files()
 
         for file in file_list:
