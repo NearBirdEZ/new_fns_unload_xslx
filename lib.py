@@ -1,39 +1,24 @@
-from threading import Thread, Lock
 import requests
-import psycopg2
 from config import Config
-import csv
+import psycopg2
+from aiohttp import ClientSession, BasicAuth
+from urllib.request import urlopen
+from lxml import etree
 
 
-class CsvJob:
+def get_version():
+    URL = 'https://github.com/NearBirdEZ/new_fns_unload_xslx/blob/master/config.py'
+    response = urlopen(URL)
+    html_parser = etree.HTMLParser()
+    tree = etree.parse(response, html_parser)
+    online_version = float(tree.xpath('//*[@id="LC20"]/span[3]/text()')[0])
+    return online_version == Config.local_version
 
-    def open_csv(self, name: str):
-        """Open CSV files"""
-        file_list = []
-        with open(name, "r", newline="") as file:
-            reader = csv.reader(file)
-            for row in reader:
-                row = row[0].split(';')
-                file_list.append(row)
-        return file_list
-
-    def write_file(self, name: str, mode: str, row: list):
-        """Write to CSV file"""
-        with open(name, mode, encoding='utf-8') as file:
-            writer = csv.writer(file, delimiter=',')
-            writer.writerow(row)
-
-    def glue_csv(self, name_list: list, new_name: str):
-        """Соединить несколько csv файлов"""
-        for count_file, name in enumerate(name_list):
-            for count_line, line in enumerate(self.open_csv(name)):
-                if count_file > 0 and count_line == 0:
-                    continue
-                self.write_file(new_name, 'a', line)
 
 class Connections:
 
-    def to_elastic(self, data, index='*'):
+    @staticmethod
+    def elastic_search(data: str, index: str = '*') -> dict or list:
         """
         На вход принимает запрос для поиска, возвращает json
 
@@ -59,8 +44,57 @@ class Connections:
                                  auth=(Config.USER_EL_PROM, Config.PASSWORD_EL_PROM))
         return response.json()
 
+    @staticmethod
+    def elastic_count(data: str, index: str = '*') -> dict or list:
+        """
+        возвращает значение count
+        """
+
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        params = (
+            ('pretty', ''),
+        )
+
+        response = requests.post(f'http://{Config.HOST_EL_PROM}:{Config.PORT_EL_PROM}/{index}/_count',
+                                 headers=headers, params=params, data=data,
+                                 auth=(Config.USER_EL_PROM, Config.PASSWORD_EL_PROM))
+        return response.json()['count']
+
+    @staticmethod
+    async def async_elastic_search(session: ClientSession, data: str, index: str = '*') -> dict or list:
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        params = (
+            ('pretty', ''),
+        )
+
+        auth = BasicAuth(login=Config.USER_EL_PROM, password=Config.PASSWORD_EL_PROM, encoding='utf-8')
+        async with session.post(f'http://{Config.HOST_EL_PROM}:{Config.PORT_EL_PROM}/{index}/_search',
+                                headers=headers, params=params, data=data,
+                                auth=auth) as resp:
+            return await resp.json()
+
+    @staticmethod
+    async def async_elastic_count(session: ClientSession, data: str, index: str = '*') -> dict or list:
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        params = (
+            ('pretty', ''),
+        )
+
+        auth = BasicAuth(login=Config.USER_EL_PROM, password=Config.PASSWORD_EL_PROM, encoding='utf-8')
+        async with session.post(f'http://{Config.HOST_EL_PROM}:{Config.PORT_EL_PROM}/{index}/_count',
+                                headers=headers, params=params, data=data,
+                                auth=auth) as resp:
+            response = await resp.json()
+            return response.json()['count']
+
     def __sql(func):
-        def wrapper(self, request):
+        def wrapper(request: str):
             connect_db = psycopg2.connect(
                 database=Config.NAME_DATABASE_PROM,
                 user=Config.USER_DB_PROM,
@@ -69,12 +103,13 @@ class Connections:
                 port=Config.PORT_DB_PROM
             )
             cursor = connect_db.cursor()
-            return func(self, request, connect_db, cursor)
+            return func(request, connect_db, cursor)
 
         return wrapper
 
+    @staticmethod
     @__sql
-    def sql_select(self, request, *args):
+    def sql_select(request: str, *args) -> list:
         """
         На вход подается sql запрос
         На выходе массив построчно.
@@ -86,8 +121,9 @@ class Connections:
         rows = cursor.fetchall()
         return rows
 
+    @staticmethod
     @__sql
-    def sql_update(self, request, *args):
+    def sql_update(request: str, *args) -> None:
         """
         На вход подается sql запрос
         На выходе массив построчно.
@@ -98,3 +134,7 @@ class Connections:
         cursor.execute(request)
         connect_db.commit()
         return
+
+
+if __name__ == '__main__':
+    pass
