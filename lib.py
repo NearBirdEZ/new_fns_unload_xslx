@@ -4,11 +4,12 @@ import psycopg2
 from aiohttp import ClientSession, BasicAuth
 from urllib.request import urlopen
 from lxml import etree
+import certifi
 
 
 def get_version():
     URL = 'https://github.com/NearBirdEZ/new_fns_unload_xslx/blob/master/config.py'
-    response = urlopen(URL)
+    response = urlopen(URL, cafile=certifi.where())
     html_parser = etree.HTMLParser()
     tree = etree.parse(response, html_parser)
     online_version = float(tree.xpath('//*[@id="LC20"]/span[3]/text()')[0])
