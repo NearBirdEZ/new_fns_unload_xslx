@@ -86,7 +86,7 @@ class UnloadFns:
                            '{"range" : {"requestmessage.dateTime" : {"gte" : "%d", "lte" : "%d" }}}]}}}}, ' \
                            '"aggs" : {"stats" : { "stats" : { "field" : "requestmessage.fiscalDocumentNumber" }}}}' % (
                                fn, rnm, start_date, end_date)
-        stats = self.connect.elastic_search(stats_fd_request, 'receipt*,bso*,*_shift')['aggregations']['stats']
+        stats = self.connect.elastic_search(stats_fd_request, 'receipt*,bso*,receipt_correction,*_shift')['aggregations']['stats']
         return stats['min'], stats['max']
 
     @staticmethod
@@ -197,7 +197,7 @@ class UnloadFns:
         Флаг необходим для запуска функции архивирования"""
         flag = False
 
-        index_list = ['receipt.*', 'bso', 'bso_correction', 'close_shift', 'open_shift']
+        index_list = ['receipt.*', 'bso', 'bso_correction', 'receipt_correction', 'close_shift', 'open_shift']
         count = 0
         delta = max_fd - min_fd
         iteration = ceil(delta / 5000)

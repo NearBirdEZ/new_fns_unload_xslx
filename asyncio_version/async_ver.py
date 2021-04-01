@@ -256,7 +256,7 @@ async def run(inn_rnm_list: List[dict]) -> None:
 class FnsRequest:
     def __init__(self, request_num: str, inn_list: list, rnm_list: list, start_date: date, end_date: date):
         self.DATE_20_PERCENT_NDS = dt(2019, 1, 1, 0, 0, 0).timestamp()
-        self.INDEX = 'receipt.20*,bso*,*_shift'
+        self.INDEX = 'receipt.20*,bso,bso_correction,receipt_correction,open_shift,close_shift'
         self.SIZE_UNLOAD_RECEIPT = 5000
         self.CONNECT = Connections()
         self.request = request_num
