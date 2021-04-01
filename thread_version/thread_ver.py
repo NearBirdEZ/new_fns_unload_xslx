@@ -239,7 +239,7 @@ class UnloadFns:
                     rec_list += (
                         self.get_information_on_receipt(receipt, num_kkt, human_name, name_traide_point, address_kkt))
                 """если количество товаров больше или равно 65к или это оставшиеся товары, то записать в xsls файл"""
-                if len(rec_list) >= 65000 or (i == 4 and j + 1 == iteration and rec_list):
+                if len(rec_list) >= 65000 or (i + 1 == len(index_list) and j + 1 == iteration and rec_list):
                     flag = True
                     count += 1
                     self.write_xlsx(count, inn, rnm, fn, rec_list, num)
