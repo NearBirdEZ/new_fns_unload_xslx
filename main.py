@@ -52,5 +52,5 @@ if __name__ == '__main__':
     else:
         print('Просьба использовать команды:\n\t"python main.py --asyncio"\n\tили\n\t"python main.py --threads"')
     if flag_raise:
-        print(save_file)
+        print(f'\n\n{save_file}')
     print('Затраченное время на выгрузку:', dt.now() - start)

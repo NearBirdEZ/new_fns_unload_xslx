@@ -1,6 +1,6 @@
 import asyncio
 import os
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from lib import Connections, print_exception
 from datetime import datetime as dt
 from datetime import date, timedelta
@@ -246,7 +246,7 @@ async def do_one_rnm(session: ClientSession, kkt_information: dict) -> None:
 
 async def run(inn_rnm_list: List[dict]) -> None:
     tasks = []
-    async with ClientSession() as session:
+    async with ClientSession(timeout=ClientTimeout(total=10**10)) as session:
         for row in inn_rnm_list:
             task = asyncio.ensure_future(do_one_rnm(session, row))
             tasks.append(task)
@@ -333,6 +333,7 @@ def async_main(request: str, inn_list: list, rnm_list: list, start_date: date, e
         flag_raise = True
     print(message)
     return  flag_raise
+
 
 if __name__ == '__main__':
     pass
