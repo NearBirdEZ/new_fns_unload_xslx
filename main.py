@@ -29,6 +29,12 @@ def open_request(file):
     return request_number, inn_list, rnm_list, start_date, end_date
 
 
+def return_file(file):
+    """По просьбе трудящихся"""
+    with open(file, 'r') as f:
+        return f.read()
+
+
 if __name__ == '__main__':
     if not get_version():
         print('Просьба обновить версию скрипта: https://github.com/NearBirdEZ/new_fns_unload_xslx')
@@ -37,12 +43,14 @@ if __name__ == '__main__':
     _, *use_version = argv
 
     start = dt.now()
-
+    flag_raise = False
+    save_file = return_file('request.txt')
     if use_version and use_version[0] == '--asyncio':
-        async_main(*open_request('request.txt'))
+        flag_raise = async_main(*open_request('request.txt'))
     elif use_version and use_version[0] == '--threads':
-        thread_main(*open_request('request.txt'))
+        flag_raise = thread_main(*open_request('request.txt'))
     else:
         print('Просьба использовать команды:\n\t"python main.py --asyncio"\n\tили\n\t"python main.py --threads"')
-
+    if flag_raise:
+        print(save_file)
     print('Затраченное время на выгрузку:', dt.now() - start)

@@ -1,7 +1,7 @@
 import asyncio
 import os
-from aiohttp import ClientSession, client_exceptions
-from lib import Connections
+from aiohttp import ClientSession
+from lib import Connections, print_exception
 from datetime import datetime as dt
 from datetime import date, timedelta
 from math import ceil
@@ -139,6 +139,7 @@ def parsing_receipts(receipts: dict, kkt_information: dict) -> List[list]:
                     round((item.get('unitNds', 0)
                            + item.get('nds18118', 0)
                            + item.get('nds18', 0)
+                           + item.get('ndsSum', 0)
                            + item.get('nds10', 0)) / 100, 2),
                     item.get('quantity', ''),
                     item.get('sum', 0) / 100
@@ -247,8 +248,7 @@ async def run(inn_rnm_list: List[dict]) -> None:
     tasks = []
     async with ClientSession() as session:
         for row in inn_rnm_list:
-            task = asyncio.ensure_future(
-                do_one_rnm(session, row))
+            task = asyncio.ensure_future(do_one_rnm(session, row))
             tasks.append(task)
         await asyncio.gather(*tasks)
 
@@ -314,8 +314,9 @@ class FnsRequest:
 fr: FnsRequest  # Объявляю глобальную переменную
 
 
-def async_main(request: str, inn_list: list, rnm_list: list, start_date: date, end_date: date) -> None:
+def async_main(request: str, inn_list: list, rnm_list: list, start_date: date, end_date: date) -> bool:
     global fr
+    flag_raise = False
     fr = FnsRequest(request, inn_list, rnm_list, start_date, end_date)
     create_work_dir()
     loop = asyncio.get_event_loop()
@@ -325,12 +326,13 @@ def async_main(request: str, inn_list: list, rnm_list: list, start_date: date, e
         loop.run_until_complete(future)
         zipped()
         message = f'Выгрузка {fr.request} успешно выполнена'
-    except client_exceptions.ClientConnectorError as error:
+    except Exception:
+        print_exception()
         shutil.rmtree(f'../{fr.request}')
-        message = f'Выгрузка {fr.request} завершилась с ошибкой\n{error}'
-
+        message = f'Выгрузка {fr.request} завершилась с ошибкой'
+        flag_raise = True
     print(message)
-
+    return  flag_raise
 
 if __name__ == '__main__':
     pass

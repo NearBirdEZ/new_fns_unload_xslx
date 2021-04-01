@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from lib import Connections
+from lib import Connections, print_exception
 import datetime as dt
 from datetime import timedelta
 from datetime import date
@@ -8,7 +8,6 @@ import os
 from math import ceil
 import zipfile
 from threading import Thread, Lock
-import sys
 import xlsxwriter
 
 
@@ -24,7 +23,6 @@ class UnloadFns:
         self.__job_folder()
         self.lock = Lock()
         self.STOP_FLAG = False
-        self.exception = None
 
     @staticmethod
     def _inn_list_to_string(inn_list):
@@ -181,6 +179,7 @@ class UnloadFns:
                     round((item.get('unitNds', 0)
                            + item.get('nds18118', 0)
                            + item.get('nds18', 0)
+                           + item.get('ndsSum', 0)
                            + item.get('nds10', 0)) / 100, 2),
                     item.get('quantity', ''),
                     int(item.get('sum', 0)) / 100
@@ -351,10 +350,8 @@ class UnloadFns:
                         if self.download_json(inn, num_kkt, rnm, fn, human_name, name_traide_point, address_kkt, min_fd,
                                               max_fd, i):
                             self.zipped(inn, rnm, fn, i)
-                except Exception as ex:
-                    self.exception = f"Ошибка возникла в функции {sys._getframe().f_code.co_name}\n" \
-                                     f"Строка {str(sys.exc_info()[2].tb_lineno)}\n" \
-                                     f"Текст ошибки '{str(ex)}'\n"
+                except Exception:
+                    print_exception()
                     self.STOP_FLAG = True
                     exit()
             else:
@@ -428,7 +425,7 @@ class UnloadFns:
             pass
 
 
-def thread_main(request: str, inn_list: list, rnm_list: list, start_date: date, end_date: date):
+def thread_main(request: str, inn_list: list, rnm_list: list, start_date: date, end_date: date) -> bool:
     uf = UnloadFns(request, inn_list, rnm_list, start_date, end_date)
     print('Запрос в БД')
     dict_inn_numkkt_rnm_fn = uf.get_job_dict()
@@ -437,14 +434,14 @@ def thread_main(request: str, inn_list: list, rnm_list: list, start_date: date, 
         if len(numkkt_rnm_fn_list) != 0:
             uf.start_threading(inn, numkkt_rnm_fn_list)
     if uf.STOP_FLAG:
-        message = f"Во время выгрузки информации по заявке № {uf.request} произошла ошибка.\n" \
-                  f"Просьба повторить попытку.\n" \
-                  f"Ошибка:\n\n{uf.exception}"
         uf.delete_unload()
+        message = f"Выгрузка по заявке № {uf.request} завершилась с ошибкой. Выгрука удалена."
     else:
         message = f"Выгрузка по заявке № {uf.request} завершена успешно"
         uf.final_zip()
     print(message)
+
+    return uf.STOP_FLAG
 
 
 if __name__ == '__main__':

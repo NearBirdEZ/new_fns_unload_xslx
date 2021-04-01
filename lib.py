@@ -5,6 +5,8 @@ from aiohttp import ClientSession, BasicAuth
 from urllib.request import urlopen
 from lxml import etree
 import certifi
+import sys
+import traceback
 
 
 def get_version():
@@ -14,6 +16,12 @@ def get_version():
     tree = etree.parse(response, html_parser)
     online_version = float(tree.xpath('//*[@id="LC20"]/span[3]/text()')[0])
     return online_version == Config.local_version
+
+
+def print_exception() -> None:
+    print('Error catch. Traceback lower.')
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
 
 
 class Connections:
