@@ -1,8 +1,8 @@
-from thread_version.thread_ver import thread_main
+from thread_version.thread_ver import thread_unload
 from asyncio_version.async_ver import async_main
 from datetime import datetime as dt
 from sys import argv
-from lib import get_version
+from library.lib import get_version
 
 
 def open_request(file):
@@ -48,9 +48,10 @@ if __name__ == '__main__':
     if use_version and use_version[0] == '--asyncio':
         flag_raise = async_main(*open_request('request.txt'))
     elif use_version and use_version[0] == '--threads':
-        flag_raise = thread_main(*open_request('request.txt'))
+        flag_raise = thread_unload(*open_request('request.txt'))
     else:
         print('Просьба использовать команды:\n\t"python main.py --asyncio"\n\tили\n\t"python main.py --threads"')
+
     if flag_raise:
         print(f'\n\n{save_file}')
     print('Затраченное время на выгрузку:', dt.now() - start)
