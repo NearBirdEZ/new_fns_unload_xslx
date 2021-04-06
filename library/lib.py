@@ -306,24 +306,34 @@ def parsing_receipts(receipts: dict, kkt_information: dict, fr: FnsRequest) -> L
                 receipt.get('fiscalSign', '')]
 
         if receipt.get('items'):
-            for item in receipt.get('items'):
-                lst = [
-                    item.get('name', ''),
-                    item.get('unit', ''),
-                    item.get('productCode', ''),
-                    item.get('price', 0) / 100,
-                    round((item.get('unitNds', 0)
-                           + item.get('nds18118', 0)
-                           + item.get('nds18', 0)
-                           + item.get('ndsSum', 0)
-                           + item.get('nds10', 0)) / 100, 2),
-                    item.get('quantity', ''),
-                    item.get('sum', 0) / 100
-                ]
-                parsing_list.append(base + lst)
+            items = receipt.get('items')
+            if type(receipt.get('items')) == list:
+                for item in receipt.get('items'):
+                    parsing_list.append(base + get_item_info(item))
+            elif type(receipt.get('items')) == dict:
+                parsing_list.append(base + get_item_info(items))
+            else:
+                raise AttributeError('Error in parsing receipts.\n\n', receipt)
         else:
             parsing_list.append(base + ['' for _ in range(7)])
-    return parsing_list
+        return parsing_list
+
+
+def get_item_info(item: dict) -> list:
+    lst = [
+        item.get('name', ''),
+        item.get('unit', ''),
+        item.get('productCode', ''),
+        item.get('price', 0) / 100,
+        round((item.get('unitNds', 0)
+               + item.get('nds18118', 0)
+               + item.get('nds18', 0)
+               + item.get('ndsSum', 0)
+               + item.get('nds10', 0)) / 100, 2),
+        item.get('quantity', ''),
+        item.get('sum', 0) / 100
+    ]
+    return lst
 
 
 def response_download_receipt(kkt_information: dict, fr: FnsRequest) -> str:

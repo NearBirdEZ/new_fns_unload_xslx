@@ -44,9 +44,9 @@ async def get_min_max_fd(session: ClientSession, el_request: str) -> Tuple[int o
     return stats['aggregations']['stats']['min'], stats['aggregations']['stats']['max']
 
 
-async def get_fn_list(session: ClientSession, el_request: str, rnm: str):
+async def get_fn_list(session: ClientSession, el_request: str, rnm: str) -> list:
     response = await Connections().async_elastic_search(session, el_request, fr.INDEX)
-    return ((rnm, fn['key']) for fn in response['aggregations']['fsIds']['buckets'])
+    return [(rnm, fn['key']) for fn in response['aggregations']['fsIds']['buckets']]
 
 
 async def do_one_rnm(session: ClientSession, kkt_information: dict) -> None:

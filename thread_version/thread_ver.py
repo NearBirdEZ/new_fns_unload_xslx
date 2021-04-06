@@ -66,9 +66,9 @@ def get_min_max_fd(el_request: str) -> Tuple[int or None, int or None]:
 
 
 @catch_error
-def get_fn_list(el_request: str, rnm: str):
+def get_fn_list(el_request: str, rnm: str) -> list:
     response = Connections.elastic_search(el_request, fr.INDEX)
-    result = ((rnm, fn['key']) for fn in response['aggregations']['fsIds']['buckets'])
+    result = [(rnm, fn['key']) for fn in response['aggregations']['fsIds']['buckets']]
     return result
 
 
