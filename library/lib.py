@@ -265,7 +265,6 @@ def parsing_receipts(receipts: dict, kkt_information: dict, fr: FnsRequest) -> L
     for receipt in receipts:
         receipt = receipt['_source']['requestmessage']
         datetime_receipt = receipt.get('dateTime', 0)
-
         base = [receipt.get('user', ''),
                 receipt.get('userInn', ''),
                 kkt_information['name_traide_point'],
@@ -304,7 +303,6 @@ def parsing_receipts(receipts: dict, kkt_information: dict, fr: FnsRequest) -> L
                 receipt.get('operator', ''),
                 receipt.get('operatorInn', ''),
                 receipt.get('fiscalSign', '')]
-
         if receipt.get('items'):
             items = receipt.get('items')
             if type(receipt.get('items')) == list:
@@ -316,7 +314,7 @@ def parsing_receipts(receipts: dict, kkt_information: dict, fr: FnsRequest) -> L
                 raise AttributeError('Error in parsing receipts.\n\n', receipt)
         else:
             parsing_list.append(base + ['' for _ in range(7)])
-        return parsing_list
+    return parsing_list
 
 
 def get_item_info(item: dict) -> list:
