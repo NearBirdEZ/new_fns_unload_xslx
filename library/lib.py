@@ -273,7 +273,7 @@ def parsing_receipts(receipts: dict, kkt_information: dict, fr: FnsRequest) -> L
                 receipt.get('kktRegId', ''),
                 kkt_information['factory_number_kkt'],
                 receipt.get('fiscalDriveNumber', ''),
-                sys_tax.get(receipt.get('appliedTaxationType'), ''),
+                sys_tax.get(receipt.get('appliedTaxationType') or receipt.get('taxationType'), ''),
                 receipt.get('retailPlaceAddress') or receipt.get('retailAddress', ''),
                 tagNumber.get(receipt.get('code'), ''),
                 receipt.get('shiftNumber', ''),
