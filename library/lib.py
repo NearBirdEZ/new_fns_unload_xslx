@@ -8,7 +8,6 @@ import certifi
 import sys
 import traceback
 from datetime import datetime as dt
-from datetime import timedelta
 from datetime import date
 import os
 import shutil
@@ -145,7 +144,7 @@ class FnsRequest:
         self.inn_list = inn_list
         self.rnm_list = rnm_list
         self.start_date = dt.combine(start_date, dt.min.time()).timestamp()
-        self.end_date = (dt.combine(end_date, dt.min.time()) + timedelta(hours=23, minutes=59, seconds=59)).timestamp()
+        self.end_date = dt.combine(end_date, dt.max.time()).timestamp()
         self.raise_flag: bool = False
         self.threads = 3
 
