@@ -17,4 +17,4 @@ class Config(object):
     HOST_EL_PROM = os.environ.get('HOST_EL_PROM') or ''
     PORT_EL_PROM = os.environ.get('PORT_EL_PROM') or ''
 
-    local_version = 0.19
+    local_version = 0.2

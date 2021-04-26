@@ -248,22 +248,28 @@ def response_fn_list(rnm: str, fr: FnsRequest) -> str:
 
 
 def check_for_write(parsing_list: List[list],
+                    total_sum: float,
                     num_iter: int,
                     iteration: int,
                     count_files: int,
-                    kkt_information: dict) -> Tuple[list, int]:
+                    kkt_information: dict) -> Tuple[list, int, float]:
     if len(parsing_list) >= 65000 or (num_iter + 1 == iteration and parsing_list):
         count_files += 1
+        parsing_list += [[], ['Итоговая сумма ФД за файл, руб.', round(total_sum, 2)]]
         write_xlsx(count_files, parsing_list, kkt_information)
         parsing_list = []
-    return parsing_list, count_files
+        total_sum = 0
+    return parsing_list, count_files, total_sum
 
 
-def parsing_receipts(receipts: dict, kkt_information: dict, fr: FnsRequest) -> List[list]:
+def parsing_receipts(receipts: dict, kkt_information: dict, fr: FnsRequest) -> Tuple[List[list], float]:
     parsing_list: list = []
+    total_receipts_sum = 0
     for receipt in receipts:
         receipt = receipt['_source']['requestmessage']
         datetime_receipt = receipt.get('dateTime', 0)
+        total_sum = (receipt.get('totalSum') or receipt.get('correctionSum', 0)) / 100
+        type_operation = receipt.get('operationType')
         base = [receipt.get('user', ''),
                 receipt.get('userInn', ''),
                 kkt_information['name_traide_point'],
@@ -279,8 +285,8 @@ def parsing_receipts(receipts: dict, kkt_information: dict, fr: FnsRequest) -> L
                 receipt.get('requestNumber', ''),
                 receipt.get('fiscalDocumentNumber', ''),
                 dt.utcfromtimestamp(datetime_receipt).strftime('%Y-%m-%d %H:%M:%S'),
-                operationType.get(receipt.get('operationType'), ''),
-                receipt.get('totalSum', 0) / 100,
+                operationType.get(type_operation, ''),
+                total_sum,
                 receipt.get('cashTotalSum', 0) / 100,
                 receipt.get('ecashTotalSum', 0) / 100,
                 receipt.get('nds18', 0) / 100 if datetime_receipt >= fr.DATE_20_PERCENT_NDS and receipt.get(
@@ -313,7 +319,12 @@ def parsing_receipts(receipts: dict, kkt_information: dict, fr: FnsRequest) -> L
                 raise AttributeError('Error in parsing receipts.\n\n', receipt)
         else:
             parsing_list.append(base + ['' for _ in range(7)])
-    return parsing_list
+
+        if type_operation in (2, 3):
+            total_receipts_sum -= total_sum
+        elif type_operation in (1, 4):
+            total_receipts_sum += total_sum
+    return parsing_list, round(total_receipts_sum, 2)
 
 
 def get_item_info(item: dict) -> list:
