@@ -38,7 +38,7 @@ async def download_receipt(session: ClientSession, kkt_information: dict) -> Non
         parsing_lists += parsing_list
         total_sum += receipts_sum
 
-        parsing_list, count_files, total_sum = check_for_write(parsing_list, total_sum, num_iter, iteration, count_files, kkt_information)
+        parsing_list, count_files, total_sum = check_for_write(parsing_lists, total_sum, num_iter, iteration, count_files, kkt_information)
         kkt_information['min_fd'] += fr.SIZE_UNLOAD_RECEIPT
 
 
