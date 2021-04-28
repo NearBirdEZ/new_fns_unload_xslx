@@ -25,7 +25,7 @@ def create_inn_dir(inn: str) -> None:
 
 
 async def download_receipt(session: ClientSession, kkt_information: dict) -> None:
-    parsing_lists = []
+    total_parsing_lists = []
     total_sum = 0
     count_files = 0
     delta: int = kkt_information['max_fd'] - kkt_information['min_fd']
@@ -35,10 +35,10 @@ async def download_receipt(session: ClientSession, kkt_information: dict) -> Non
         receipts = await Connections().async_elastic_search(session, receipt_request, fr.INDEX)
         parsing_list, receipts_sum = parsing_receipts(receipts['hits']['hits'], kkt_information, fr)
 
-        parsing_lists += parsing_list
+        total_parsing_lists += parsing_list
         total_sum += receipts_sum
 
-        parsing_list, count_files, total_sum = check_for_write(parsing_lists, total_sum, num_iter, iteration, count_files, kkt_information)
+        total_parsing_lists, count_files, total_sum = check_for_write(total_parsing_lists, total_sum, num_iter, iteration, count_files, kkt_information)
         kkt_information['min_fd'] += fr.SIZE_UNLOAD_RECEIPT
 
 

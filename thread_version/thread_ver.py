@@ -45,7 +45,7 @@ def create_inn_dir(inn: str) -> None:
 
 @catch_error
 def download_receipt(kkt_information: dict) -> None:
-    parsing_lists = []
+    total_parsing_lists = []
     count_files = 0
     total_sum = 0
     delta: int = kkt_information['max_fd'] - kkt_information['min_fd']
@@ -55,10 +55,10 @@ def download_receipt(kkt_information: dict) -> None:
         receipts = Connections.elastic_search(receipt_request, fr.INDEX)
         parsing_list, receipts_sum = parsing_receipts(receipts['hits']['hits'], kkt_information, fr)
 
-        parsing_lists += parsing_list
+        total_parsing_lists += parsing_list
         total_sum += receipts_sum
 
-        parsing_list, count_files, total_sum = check_for_write(parsing_lists, total_sum, num_iter, iteration,
+        total_parsing_lists, count_files, total_sum = check_for_write(total_parsing_lists, total_sum, num_iter, iteration,
                                                                count_files, kkt_information)
         kkt_information['min_fd'] += fr.SIZE_UNLOAD_RECEIPT
 
