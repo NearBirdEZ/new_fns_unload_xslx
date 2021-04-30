@@ -254,11 +254,11 @@ def check_for_write(parsing_list: List[list],
                     count_files: int,
                     kkt_information: dict) -> Tuple[list, int, float]:
     if len(parsing_list) >= 65000 or (num_iter + 1 == iteration and parsing_list):
-        count_files += 1
         parsing_list += [[], ['Итоговая сумма ФД за файл, руб.', round(total_sum, 2)]]
+        total_sum = 0
+        count_files += 1
         write_xlsx(count_files, parsing_list, kkt_information)
         parsing_list = []
-        total_sum = 0
     return parsing_list, count_files, total_sum
 
 
@@ -268,8 +268,14 @@ def parsing_receipts(receipts: dict, kkt_information: dict, fr: FnsRequest) -> T
     for receipt in receipts:
         receipt = receipt['_source']['requestmessage']
         datetime_receipt = receipt.get('dateTime', 0)
-        total_sum = (receipt.get('totalSum') or receipt.get('correctionSum', 0)) / 100
+        total_sum = round((receipt.get('totalSum') or receipt.get('correctionSum', 0)) / 100, 2)
         type_operation = receipt.get('operationType')
+
+        if type_operation in (2, 3):
+            total_sum = total_sum * (-1)
+
+        total_receipts_sum += total_sum
+
         base = [receipt.get('user', ''),
                 receipt.get('userInn', ''),
                 kkt_information['name_traide_point'],
@@ -320,10 +326,6 @@ def parsing_receipts(receipts: dict, kkt_information: dict, fr: FnsRequest) -> T
         else:
             parsing_list.append(base + ['' for _ in range(7)])
 
-        if type_operation in (2, 3):
-            total_receipts_sum -= total_sum
-        elif type_operation in (1, 4):
-            total_receipts_sum += total_sum
     return parsing_list, round(total_receipts_sum, 2)
 
 
@@ -373,7 +375,7 @@ def response_download_receipt(kkt_information: dict, fr: FnsRequest) -> str:
                            "sort" : [
                                 { "requestmessage.fiscalDocumentNumber" : { "order" : "asc"}}
                                 ]
-                        }""" % (fr.SIZE_UNLOAD_RECEIPT,
+                        }""" % (fr.SIZE_UNLOAD_RECEIPT + 1,
                                 kkt_information['factory_number_fn'],
                                 kkt_information['register_number_kkt'],
                                 fr.start_date,

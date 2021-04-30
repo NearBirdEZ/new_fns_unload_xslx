@@ -51,6 +51,7 @@ def download_receipt(kkt_information: dict) -> None:
     delta: int = kkt_information['max_fd'] - kkt_information['min_fd']
     iteration: int = ceil(delta / fr.SIZE_UNLOAD_RECEIPT)
     for num_iter in range(iteration):
+        kkt_information['max_fd'] = (kkt_information['min_fd'] + fr.SIZE_UNLOAD_RECEIPT)
         receipt_request = response_download_receipt(kkt_information, fr)
         receipts = Connections.elastic_search(receipt_request, fr.INDEX)
         parsing_list, receipts_sum = parsing_receipts(receipts['hits']['hits'], kkt_information, fr)
@@ -60,7 +61,7 @@ def download_receipt(kkt_information: dict) -> None:
 
         total_parsing_lists, count_files, total_sum = check_for_write(total_parsing_lists, total_sum, num_iter, iteration,
                                                                count_files, kkt_information)
-        kkt_information['min_fd'] += fr.SIZE_UNLOAD_RECEIPT
+        kkt_information['min_fd'] += (fr.SIZE_UNLOAD_RECEIPT + 1)
 
 
 @catch_error
