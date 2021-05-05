@@ -16,6 +16,7 @@ from library.lib import (
 from datetime import date
 from math import ceil
 import shutil
+import numpy as np
 from typing import Tuple, List
 
 
@@ -26,7 +27,7 @@ def create_inn_dir(inn: str) -> None:
 
 async def download_receipt(session: ClientSession, kkt_information: dict) -> None:
     total_parsing_lists = []
-    total_sum = 0
+    total_sum = np.array([0, 0, 0, 0, 0, 0], dtype=np.float64)
     count_files = 0
     delta: int = kkt_information['max_fd'] - kkt_information['min_fd']
     iteration: int = ceil(delta / fr.SIZE_UNLOAD_RECEIPT)
@@ -41,6 +42,7 @@ async def download_receipt(session: ClientSession, kkt_information: dict) -> Non
 
         total_parsing_lists, count_files, total_sum = check_for_write(total_parsing_lists, total_sum, num_iter, iteration, count_files, kkt_information)
         kkt_information['min_fd'] += (fr.SIZE_UNLOAD_RECEIPT + 1)
+
 
 async def get_min_max_fd(session: ClientSession, el_request: str) -> Tuple[int or None, int or None]:
     stats = await Connections().async_elastic_search(session, el_request, fr.INDEX)

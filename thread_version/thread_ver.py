@@ -16,6 +16,7 @@ from datetime import date
 from math import ceil
 import shutil
 from typing import Tuple, List
+import numpy as np
 
 
 fr: FnsRequest  # Объявляю глобальную переменную
@@ -47,7 +48,7 @@ def create_inn_dir(inn: str) -> None:
 def download_receipt(kkt_information: dict) -> None:
     total_parsing_lists = []
     count_files = 0
-    total_sum = 0
+    total_sum = np.array([0, 0, 0, 0, 0, 0], dtype=np.float64)
     delta: int = kkt_information['max_fd'] - kkt_information['min_fd']
     iteration: int = ceil(delta / fr.SIZE_UNLOAD_RECEIPT)
     for num_iter in range(iteration):
